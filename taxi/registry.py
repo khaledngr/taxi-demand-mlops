@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import time
 
 import requests
@@ -39,7 +40,8 @@ def _history(client: MlflowClient, name: str) -> list[int]:
 
 def _reload(api: str | None) -> None:
     if api:
-        r = requests.post(f"{api}/v1/admin/reload", timeout=30)
+        headers = {"X-Admin-Token": os.environ["TAXI_ADMIN_TOKEN"]} if os.environ.get("TAXI_ADMIN_TOKEN") else {}
+        r = requests.post(f"{api}/v1/admin/reload", headers=headers, timeout=30)
         print(f"API reload: {r.status_code} {r.json()}")
 
 

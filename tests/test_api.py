@@ -71,3 +71,9 @@ def test_promote_then_rollback_moves_alias_and_api_follows(client, registry):
 
     assert reg.rollback() == v1
     assert client.post("/v1/admin/reload").json()["model_version"] == v1
+
+
+def test_reload_needs_the_admin_token_when_one_is_set(client, monkeypatch):
+    monkeypatch.setattr(main, "ADMIN_TOKEN", "s3cret")
+    assert client.post("/v1/admin/reload").status_code == 401
+    assert client.post("/v1/admin/reload", headers={"X-Admin-Token": "s3cret"}).status_code == 200

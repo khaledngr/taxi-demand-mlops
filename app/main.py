@@ -21,7 +21,7 @@ from threading import Lock
 from typing import ClassVar
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 from prometheus_client import Counter, Gauge, Histogram, make_asgi_app
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -31,6 +31,7 @@ from taxi.model import load_alias, predict
 
 ALIAS = os.environ.get("TAXI_MODEL_ALIAS", "production")
 PSI_WINDOW = int(os.environ.get("TAXI_PSI_WINDOW", "300"))
+ADMIN_TOKEN = os.environ.get("TAXI_ADMIN_TOKEN", "")  # set it outside a laptop: /v1/admin/* then needs it
 MONITORED = ["lag_1", "lag_24", "lag_168", "prediction"]
 
 REQUESTS = Counter("taxi_requests_total", "Prediction requests", ["status"])
@@ -138,8 +139,10 @@ def predict_one(req: PredictionRequest):
 
 
 @app.post("/v1/admin/reload")
-def reload():
+def reload(x_admin_token: str | None = Header(default=None)):
     """Re-resolve the alias after a promotion or a rollback, without a redeploy."""
+    if ADMIN_TOKEN and x_admin_token != ADMIN_TOKEN:
+        raise HTTPException(401, "admin token required")
     load()
     if State.model is None:
         raise HTTPException(503, "no model loaded")

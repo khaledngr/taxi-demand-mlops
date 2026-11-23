@@ -37,3 +37,10 @@ def test_collapse_in_demand_is_flagged_act(registry):
     assert all(v["level"] != "act" for v in check(frame(normal), ref).values())
     flagged = check(frame(collapsed), ref)
     assert flagged["lag_1"]["level"] == "act" and flagged["prediction"]["level"] == "act"
+
+
+def test_drift_alone_does_not_retrain():
+    from taxi.retrain import hurts
+
+    assert not hurts(recent_wape=0.12, baseline_wape=0.11)  # drifted inputs, same error: keep watching
+    assert hurts(recent_wape=0.20, baseline_wape=0.11)  # error up by more than hurt_ratio (1.2x): retrain

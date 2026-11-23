@@ -129,7 +129,8 @@ def load_alias(alias: str = "production"):
     name = params()["model"]["name"]
     client = MlflowClient()
     mv = client.get_model_version_by_alias(name, alias)
-    model = mlflow.sklearn.load_model(f"models:/{name}@{alias}")
+    # load the version the alias pointed to when we asked, so model and reference always match
+    model = mlflow.sklearn.load_model(f"models:/{name}/{mv.version}")
     run_id = mv.tags.get("run_id") or mv.run_id
     with tempfile.TemporaryDirectory() as tmp:
         ref = json.loads(Path(client.download_artifacts(run_id, "reference.json", tmp)).read_text())
