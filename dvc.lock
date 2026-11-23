@@ -1,0 +1,45 @@
+schema: '2.0'
+stages:
+  download:
+    cmd: uv run python -m taxi.download
+    deps:
+    - path: taxi/download.py
+      hash: md5
+      md5: aa4a2c08f1285942580695c50a78358b
+      size: 1143
+    params:
+      params.yaml:
+        data.months:
+        - 2020-01
+        - 2020-02
+        - 2020-03
+        - 2020-04
+    outs:
+    - path: data/raw
+      hash: md5
+      md5: e84074156092361c0f5d4ce5ad2084f1.dir
+      size: 234582949
+      nfiles: 4
+  features:
+    cmd: uv run python -m taxi.features
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: e84074156092361c0f5d4ce5ad2084f1.dir
+      size: 234582949
+      nfiles: 4
+    - path: taxi/features.py
+      hash: md5
+      md5: 5b22abe92537d711a453bfaf8b698383
+      size: 2437
+    params:
+      params.yaml:
+        data.top_zones: 30
+        periods.train:
+        - '2020-01-01'
+        - '2020-02-14'
+    outs:
+    - path: data/features.parquet
+      hash: md5
+      md5: d6b35a0e2dc2d723d147fb3b8b1b544e
+      size: 710727

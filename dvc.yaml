@@ -1,0 +1,19 @@
+stages:
+  download:
+    cmd: uv run python -m taxi.download
+    deps:
+      - taxi/download.py
+    params:
+      - data.months
+    outs:
+      - data/raw
+  features:
+    cmd: uv run python -m taxi.features
+    deps:
+      - taxi/features.py
+      - data/raw
+    params:
+      - data.top_zones
+      - periods.train
+    outs:
+      - data/features.parquet

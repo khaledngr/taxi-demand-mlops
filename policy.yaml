@@ -1,0 +1,12 @@
+# Drift and retraining policy. Thresholds live in Git: changing one is a reviewed commit.
+drift:
+  window_hours: 24          # live window compared against the reference
+  psi_watch: 0.10           # convention from the course: 0.10 watch, 0.25 act
+  psi_act: 0.25
+  features: [lag_1, lag_24, lag_168, prediction]
+
+retrain:
+  train_days: 14            # candidate is trained on the most recent labelled days
+  gate_days: 3              # most recent labelled days, held out, decide the promotion
+  min_gain: 0.05            # candidate MAE must be at least 5% lower than production on the gate window
+  cooldown_hours: 24        # at most one retraining per day

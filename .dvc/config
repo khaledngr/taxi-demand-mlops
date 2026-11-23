@@ -1,0 +1,5 @@
+[core]
+    autostage = true
+    remote = local
+['remote "local"']
+    url = /Users/khaledelnagar/dvc-storage/taxi-demand

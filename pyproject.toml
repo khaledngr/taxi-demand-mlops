@@ -1,0 +1,39 @@
+[project]
+name = "taxi-demand-mlops"
+version = "0.1.0"
+description = "NYC taxi demand forecast, operated end to end: MLflow, DVC, FastAPI, drift, gated retraining, rollback"
+authors = [
+    { name = "khaledngr", email = "khaledngr@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "dvc>=3.67.1",
+    "fastapi>=0.165.0",
+    "matplotlib>=3.11.2",
+    "mlflow>=3",
+    "pandas>=3.1.1",
+    "prometheus-client>=0.26.0",
+    "pyarrow>=26.0.1",
+    "pyyaml>=6.0.4",
+    "requests>=2.34.2",
+    "scikit-learn>=1.9.1",
+    "scipy>=1.18.1",
+    "uvicorn[standard]>=0.54.0",
+]
+
+
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.6",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::FutureWarning", "ignore::UserWarning"]
+
+[tool.ruff]
+line-length = 120

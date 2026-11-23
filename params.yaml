@@ -1,0 +1,17 @@
+# All choices that change a model live here, so a new value is a reviewed commit.
+data:
+  months: ["2020-01", "2020-02", "2020-03", "2020-04"]   # TLC yellow taxi files to download
+  top_zones: 30                                          # busiest pickup zones in the reference period
+
+periods:                      # split by time, never at random
+  train: ["2020-01-01", "2020-02-14"]
+  valid: ["2020-02-15", "2020-02-29"]   # golden set for the gate, never trained on
+  # what production sees after deployment (drift starts when NYC locks down, mid-March 2020)
+  live: ["2020-03-01", "2020-04-30"]
+
+model:
+  name: taxi-demand
+  n_estimators: 200
+  max_depth: 6
+  learning_rate: 0.1
+  random_state: 42
