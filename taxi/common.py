@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import subprocess
+import warnings
 from pathlib import Path
 
 import mlflow
@@ -55,6 +57,9 @@ def md5(path: Path) -> str:
 
 def setup_mlflow() -> None:
     """Local SQLite store by default, so a fresh clone needs no server. Override with MLFLOW_TRACKING_URI."""
+    logging.getLogger("mlflow").setLevel(logging.WARNING)  # keep the console for our own decisions
+    logging.getLogger("mlflow.utils.environment").setLevel(logging.ERROR)
+    warnings.filterwarnings("ignore", message=".*Inferred schema contains integer column.*")
     uri = os.environ.get("MLFLOW_TRACKING_URI", f"sqlite:///{ROOT / 'mlflow.db'}")
     mlflow.set_tracking_uri(uri)
     mlflow.set_registry_uri(uri)
