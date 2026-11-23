@@ -2,7 +2,7 @@
 
 *A replay, not a live outage.* `make simulate` runs the production loop one day at a time over March and April 2020: score the day, check drift, decide. All numbers below come from `reports/incident_summary.json` and `reports/incident_timeline.csv` and are reproduced by `make all`.
 
-![incident timeline](reports/incident_timeline.png)
+![incident timeline](docs/incident_timeline.png)
 
 ## Summary
 
