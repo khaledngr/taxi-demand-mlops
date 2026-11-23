@@ -79,9 +79,13 @@ def rollback(api: str | None = None) -> int:
 
 def status() -> None:
     client, name = _client()
+    holders = {alias: _alias_version(client, name, alias) for alias in ("production", "staging")}
     for mv in sorted(client.search_model_versions(f"name='{name}'"), key=lambda m: int(m.version)):
         run = client.get_run(mv.tags.get("run_id") or mv.run_id)
-        aliases = ",".join(f"@{a}" for a in mv.aliases) or "-"
+        aliases = ",".join(f"@{a}" for a, v in holders.items() if v == int(mv.version))
+        if mv.tags.get("rolled_back") == "true":
+            aliases += " (rolled back)"
+        aliases = aliases.strip() or "-"
         print(
             f"v{mv.version:<3} {aliases:<22} valid_mae={run.data.metrics.get('valid_mae', float('nan')):7.2f}"
             f"  reason={run.data.tags.get('reason', '-'):<28} commit={run.data.tags.get('git_commit', '?')[:8]}"

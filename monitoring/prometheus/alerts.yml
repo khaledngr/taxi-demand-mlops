@@ -1,0 +1,32 @@
+# Every alert has an owner (the on-call ML engineer) and a runbook: RUNBOOK.md
+groups:
+  - name: taxi-demand
+    rules:
+      - alert: ApiDown                                   # layer 1: infrastructure
+        expr: up{job="taxi-api"} == 0
+        for: 30s
+        labels: { severity: page, layer: "1" }
+        annotations:
+          summary: "the taxi API does not answer /metrics"
+          runbook: "RUNBOOK.md#apidown"
+      - alert: SlowRequests                              # layer 1: latency budget 200 ms at P95
+        expr: histogram_quantile(0.95, sum by (le) (rate(taxi_request_seconds_bucket[1m]))) > 0.2
+        for: 1m
+        labels: { severity: page, layer: "1" }
+        annotations:
+          summary: "P95 latency {{ $value | printf \"%.2f\" }} s, the budget is 0.2 s"
+          runbook: "RUNBOOK.md#slowrequests"
+      - alert: InputDrift                                # layer 2: policy.yaml psi_act
+        expr: max(taxi_input_psi{feature=~"lag_.*"}) > 0.25
+        for: 30s                                         # demo value; production uses 10m
+        labels: { severity: page, layer: "2" }
+        annotations:
+          summary: "input drift: max PSI {{ $value | printf \"%.2f\" }} above 0.25"
+          runbook: "RUNBOOK.md#inputdrift"
+      - alert: PredictionDrift                           # layer 3: the scores moved
+        expr: taxi_input_psi{feature="prediction"} > 0.25
+        for: 30s
+        labels: { severity: ticket, layer: "3" }
+        annotations:
+          summary: "prediction distribution moved (PSI {{ $value | printf \"%.2f\" }})"
+          runbook: "RUNBOOK.md#inputdrift"
