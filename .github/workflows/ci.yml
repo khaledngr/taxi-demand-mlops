@@ -1,0 +1,32 @@
+name: ci
+on:
+  push:
+    branches: [main]
+    paths: ["taxi/**", "app/**", "tests/**", "pyproject.toml", "uv.lock", "Dockerfile", "*.yaml", ".github/workflows/**"]
+  pull_request:
+    paths: ["taxi/**", "app/**", "tests/**", "pyproject.toml", "uv.lock", "Dockerfile", "*.yaml", ".github/workflows/**"]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc  # v6.4.3
+        with:
+          version: "0.8.17"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run pytest -q          # synthetic data and a throwaway registry: no download needed
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - run: docker build --build-arg GIT_COMMIT=${{ github.sha }} -t taxi-api:${{ github.sha }} .

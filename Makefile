@@ -3,7 +3,7 @@ export MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR := false
 API ?= http://localhost:8000
 RUN := uv run
 
-.PHONY: setup data train promote serve test lint drift simulate status rollback mlflow-ui monitoring reset all
+.PHONY: setup data train promote serve test lint drift simulate status rollback mlflow-ui monitoring repro image docker-serve traffic reset all
 
 setup:          ## install the locked environment
 	uv sync --locked
@@ -37,6 +37,19 @@ mlflow-ui:      ## MLflow UI on :5001 (5000 is AirPlay on a Mac)
 
 monitoring:     ## Prometheus :9090, Alertmanager :9093, Grafana :3000 (needs Docker and `make serve`)
 	docker compose up -d
+
+repro:          ## refit version V (default 1) from code + data and compare with the logged metrics (1e-6)
+	$(RUN) python -m taxi.repro_check --version $(or $(V),1)
+
+image:          ## build the API image, tagged with the commit
+	docker build --build-arg GIT_COMMIT=$$(git rev-parse --short HEAD) -t taxi-api:$$(git rev-parse --short HEAD) .
+
+docker-serve:   ## the API from its image on :8000 (repo mounted at the same path: registry paths are absolute)
+	docker run --rm -p 8000:8000 -v "$(CURDIR):$(CURDIR)" -e MLFLOW_TRACKING_URI="sqlite:///$(CURDIR)/mlflow.db" \
+		taxi-api:$$(git rev-parse --short HEAD)
+
+traffic:        ## live demo traffic: make traffic PERIOD=normal  or  PERIOD=covid
+	$(RUN) python -m taxi.traffic $(PERIOD) -n 300 --rate 50
 
 test:
 	$(RUN) pytest -q

@@ -1,0 +1,38 @@
+# Manual, gated retraining. A person starts it; the gate in taxi/retrain.py decides whether the candidate
+# reaches @staging; moving @staging to @production stays a separate human step (make promote).
+name: retrain
+on:
+  workflow_dispatch:
+    inputs:
+      now:
+        description: "simulated 'now' (the candidate trains on the 14 days before the gate window)"
+        required: true
+        default: "2020-03-20 00:00"
+      reason:
+        description: "why (the alert, the ticket)"
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: retrain              # never two retrainings at once
+  cancel-in-progress: false
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: retraining   # required reviewer configured in the repository settings
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc  # v6.4.3
+        with:
+          version: "0.8.17"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run dvc repro   # no shared DVC remote in CI yet: rebuild the data from the TLC files
+      - run: uv run python -m taxi.train
+      - run: uv run python -m taxi.registry promote
+      - run: uv run python -m taxi.retrain --now "$NOW" --reason "$REASON" --force
+        env:                    # inputs go through env, never pasted into the shell line
+          NOW: ${{ inputs.now }}
+          REASON: ${{ inputs.reason }}
+      - run: uv run python -m taxi.registry status
