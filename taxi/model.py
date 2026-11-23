@@ -112,6 +112,14 @@ def register(model_uri: str, run_id: str, alias: str) -> int:
     return int(version.version)
 
 
+def deployed_mae(alias: str = "production") -> float:
+    """MAE the aliased model had on its held-out window when it was trained: the baseline for 'does it hurt?'."""
+    setup_mlflow()
+    client = MlflowClient()
+    mv = client.get_model_version_by_alias(params()["model"]["name"], alias)
+    return float(client.get_run(mv.tags.get("run_id") or mv.run_id).data.metrics["valid_mae"])
+
+
 def load_alias(alias: str = "production"):
     """Load a model by name and alias (never by path or run id). Returns (model, version, reference)."""
     setup_mlflow()

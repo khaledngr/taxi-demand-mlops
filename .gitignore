@@ -10,3 +10,4 @@ mlflow.db
 mlartifacts/
 mlruns/
 state/
+reports/

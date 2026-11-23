@@ -6,7 +6,10 @@ drift:
   features: [lag_1, lag_24, lag_168, prediction]
 
 retrain:
-  train_days: 14            # candidate is trained on the most recent labelled days
+  # drift is not a reason to retrain: only when it hurts. Yesterday's production MAE must be at least
+  # hurt_ratio x the MAE it had when it was trained (labels arrive one hour later, so we know it)
+  hurt_ratio: 1.2
+  train_days: 14           # candidate is trained on the most recent labelled days
   gate_days: 3              # most recent labelled days, held out, decide the promotion
   min_gain: 0.05            # candidate MAE must be at least 5% lower than production on the gate window
   cooldown_hours: 24        # at most one retraining per day

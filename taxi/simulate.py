@@ -12,6 +12,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+import os
+
+os.environ.setdefault("MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR", "false")
+os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
+logging.getLogger("mlflow").setLevel(logging.ERROR)
 
 import matplotlib
 
@@ -21,7 +27,7 @@ import pandas as pd
 
 from taxi import drift, registry, retrain
 from taxi.common import REPORTS_DIR, params
-from taxi.model import evaluate, load_alias, load_features
+from taxi.model import deployed_mae, evaluate, load_alias, load_features
 
 
 def main() -> None:
@@ -34,6 +40,7 @@ def main() -> None:
     retrain.STATE.unlink(missing_ok=True)  # a fresh replay starts with no cooldown
     df = load_features()
     model, version, reference = load_alias("production")
+    baseline = deployed_mae("production")
     frozen, frozen_version, _ = model, version, reference  # what would happen if nobody reacted
     rows, events = [], []
 
@@ -52,12 +59,18 @@ def main() -> None:
             "actual_mean_pickups": round(today.y.mean(), 1),
             "max_psi": check["max_psi"],
             "drift_decision": check["decision"],
-            "drifted_features": ",".join(check["drifted"]),
+            "drifted_features": " ".join(check["drifted"]),
+            "baseline_mae": round(baseline, 2),
             "action": "",
         }
-        if check["decision"] == "act":
-            res = retrain.run(str(day + pd.Timedelta(days=1)), reason=f"psi={check['max_psi']:.2f} {check['drifted']}",
-                              df=df)
+        if check["decision"] == "act" and not retrain.hurts(mae, baseline):
+            row["action"] = "drift but no harm: keep watching"
+        elif check["decision"] == "act":
+            res = retrain.run(
+                str(day + pd.Timedelta(days=1)),
+                reason=f"psi={check['max_psi']:.2f} mae={mae:.1f} vs {baseline:.1f}",
+                df=df,
+            )
             row["action"] = res["status"]
             if res["status"] != "skipped":
                 events.append({"day": str(day.date()), "max_psi": check["max_psi"], **res})
@@ -66,6 +79,7 @@ def main() -> None:
             if res["status"] == "promoted_to_staging" and a.approve:
                 version = registry.promote()
                 model, _, reference = load_alias("production")
+                baseline = deployed_mae("production")
                 row["action"] += f" -> approved, v{version} @production"
                 events[-1]["approved_to_production"] = version
         rows.append(row)
