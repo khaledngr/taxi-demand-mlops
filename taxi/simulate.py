@@ -26,8 +26,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from taxi import drift, registry, retrain
-from taxi.common import REPORTS_DIR, params
-from taxi.model import deployed_mae, evaluate, load_alias, load_features
+from taxi.common import REPORTS_DIR, params, policy
+from taxi.model import deployed_wape, evaluate, load_alias, load_features
 
 
 def main() -> None:
@@ -40,7 +40,7 @@ def main() -> None:
     retrain.STATE.unlink(missing_ok=True)  # a fresh replay starts with no cooldown
     df = load_features()
     model, version, reference = load_alias("production")
-    baseline = deployed_mae("production")
+    baseline = deployed_wape("production")
     frozen, frozen_version, _ = model, version, reference  # what would happen if nobody reacted
     rows, events = [], []
 
@@ -48,27 +48,28 @@ def main() -> None:
         today = df[(df.ts >= day) & (df.ts < day + pd.Timedelta(days=1))]
         if today.empty:
             continue
-        mae = evaluate(model, today)["mae"]
-        frozen_mae = evaluate(frozen, today)["mae"]
+        prod, frozen_m = evaluate(model, today), evaluate(frozen, today)
         check = drift.run(str(day + pd.Timedelta(hours=23)), model, reference, df)
         row = {
             "day": day.date(),
             "production_version": version,
-            "mae_production": round(mae, 2),
-            "mae_if_no_reaction": round(frozen_mae, 2),
+            "mae_production": round(prod["mae"], 2),
+            "mae_if_no_reaction": round(frozen_m["mae"], 2),
+            "wape_production": round(prod["wape"], 3),
+            "wape_if_no_reaction": round(frozen_m["wape"], 3),
+            "baseline_wape": round(baseline, 3),
             "actual_mean_pickups": round(today.y.mean(), 1),
             "max_psi": check["max_psi"],
             "drift_decision": check["decision"],
             "drifted_features": " ".join(check["drifted"]),
-            "baseline_mae": round(baseline, 2),
             "action": "",
         }
-        if check["decision"] == "act" and not retrain.hurts(mae, baseline):
+        if check["decision"] == "act" and not retrain.hurts(prod["wape"], baseline):
             row["action"] = "drift but no harm: keep watching"
         elif check["decision"] == "act":
             res = retrain.run(
                 str(day + pd.Timedelta(days=1)),
-                reason=f"psi={check['max_psi']:.2f} mae={mae:.1f} vs {baseline:.1f}",
+                reason=f"psi={check['max_psi']:.2f} wape={prod['wape']:.2f} vs {baseline:.2f}",
                 df=df,
             )
             row["action"] = res["status"]
@@ -79,7 +80,7 @@ def main() -> None:
             if res["status"] == "promoted_to_staging" and a.approve:
                 version = registry.promote()
                 model, _, reference = load_alias("production")
-                baseline = deployed_mae("production")
+                baseline = deployed_wape("production")
                 row["action"] += f" -> approved, v{version} @production"
                 events[-1]["approved_to_production"] = version
         rows.append(row)
@@ -97,6 +98,8 @@ def main() -> None:
         "retraining_events": events,
         "mean_mae_with_reaction": round(timeline.mae_production.mean(), 2),
         "mean_mae_if_no_reaction": round(timeline.mae_if_no_reaction.mean(), 2),
+        "mean_wape_with_reaction": round(timeline.wape_production.mean(), 3),
+        "mean_wape_if_no_reaction": round(timeline.wape_if_no_reaction.mean(), 3),
     }
     (REPORTS_DIR / "incident_summary.json").write_text(json.dumps(summary, indent=2, default=str))
     print(json.dumps({k: v for k, v in summary.items() if k != "retraining_events"}, indent=2, default=str))
@@ -112,11 +115,14 @@ def plot(t: pd.DataFrame) -> None:
     for y, label in [(0.10, "watch"), (0.25, "act")]:
         ax2.axhline(y, ls="--", color="grey", lw=0.8)
         ax2.text(days.iloc[0], y, f" {label}", va="bottom", fontsize=8, color="grey")
-    ax2.set_yscale("symlog", linthresh=0.1)
-    ax2.set_ylabel("max PSI\n(last 24 h)")
-    ax3.plot(days, t.mae_if_no_reaction, label="no reaction (frozen v1)", color="tab:grey", ls="--")
-    ax3.plot(days, t.mae_production, label="our system (gated retraining)", color="tab:blue")
-    ax3.set_ylabel("MAE\n(pickups)")
+    ax2.set_yscale("log")
+    ax2.set_ylim(0.01, max(10, t.max_psi.max() * 1.5))
+    ax2.set_ylabel("max PSI\n(last 24 h, log)")
+    ax3.plot(days, 100 * t.wape_if_no_reaction, label="no reaction (frozen v1)", color="tab:grey", ls="--")
+    ax3.plot(days, 100 * t.wape_production, label="our system (gated retraining)", color="tab:blue")
+    ax3.plot(days, 100 * policy()["retrain"]["hurt_ratio"] * t.baseline_wape, label="'it hurts' threshold",
+             color="tab:red", lw=0.8, ls=":")
+    ax3.set_ylabel("WAPE %\n(MAE / demand)")
     ax3.legend()
     for ax in (ax1, ax2, ax3):
         for d in days[t.action.str.contains("approved", na=False)]:

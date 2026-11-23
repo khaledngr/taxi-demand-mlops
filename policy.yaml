@@ -6,8 +6,9 @@ drift:
   features: [lag_1, lag_24, lag_168, prediction]
 
 retrain:
-  # drift is not a reason to retrain: only when it hurts. Yesterday's production MAE must be at least
-  # hurt_ratio x the MAE it had when it was trained (labels arrive one hour later, so we know it)
+  # drift is not a reason to retrain: only when it hurts. Yesterday's production WAPE (MAE / mean demand)
+  # must be at least hurt_ratio x the WAPE it had when it was trained (labels arrive one hour later).
+  # WAPE, not MAE: when demand falls 30x the MAE falls with it and would hide the damage.
   hurt_ratio: 1.2
   train_days: 14           # candidate is trained on the most recent labelled days
   gate_days: 3              # most recent labelled days, held out, decide the promotion

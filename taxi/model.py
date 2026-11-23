@@ -48,9 +48,12 @@ def predict(model, df: pd.DataFrame) -> np.ndarray:
 
 def evaluate(model, df: pd.DataFrame) -> dict:
     pred = predict(model, df)
+    mae = float(mean_absolute_error(df[TARGET], pred))
     return {
-        "mae": float(mean_absolute_error(df[TARGET], pred)),
+        "mae": mae,
         "rmse": float(root_mean_squared_error(df[TARGET], pred)),
+        # error relative to demand: comparable when demand falls 30x, unlike the MAE
+        "wape": mae / max(float(df[TARGET].mean()), 1e-9),
     }
 
 
@@ -112,12 +115,12 @@ def register(model_uri: str, run_id: str, alias: str) -> int:
     return int(version.version)
 
 
-def deployed_mae(alias: str = "production") -> float:
-    """MAE the aliased model had on its held-out window when it was trained: the baseline for 'does it hurt?'."""
+def deployed_wape(alias: str = "production") -> float:
+    """WAPE the aliased model had on its held-out window when it was trained: the baseline for 'does it hurt?'."""
     setup_mlflow()
     client = MlflowClient()
     mv = client.get_model_version_by_alias(params()["model"]["name"], alias)
-    return float(client.get_run(mv.tags.get("run_id") or mv.run_id).data.metrics["valid_mae"])
+    return float(client.get_run(mv.tags.get("run_id") or mv.run_id).data.metrics["valid_wape"])
 
 
 def load_alias(alias: str = "production"):

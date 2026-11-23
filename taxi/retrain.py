@@ -22,9 +22,9 @@ from taxi.model import evaluate, load_alias, load_features, register, train_and_
 STATE = STATE_DIR / "last_retrain.json"
 
 
-def hurts(recent_mae: float, baseline_mae: float) -> bool:
-    """Drift alone is not a reason to retrain: retrain only if the error grew past hurt_ratio x baseline."""
-    return recent_mae >= policy()["retrain"]["hurt_ratio"] * baseline_mae
+def hurts(recent_wape: float, baseline_wape: float) -> bool:
+    """Drift alone is not a reason to retrain: retrain only if the relative error grew past hurt_ratio x baseline."""
+    return recent_wape >= policy()["retrain"]["hurt_ratio"] * baseline_wape
 
 
 def cooldown_over(now: pd.Timestamp) -> bool:
